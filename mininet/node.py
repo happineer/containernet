@@ -823,9 +823,11 @@ class Docker ( Host ):
 
         # creats host config for container
         # see: https://docker-py.readthedocs.io/en/stable/api.html#docker.api.container.ContainerApiMixin.create_host_config
+        info(f"Container Privileged Flag: {defaults['Privileged']}\n")
+        priv = defaults['Privileged']
         hc = self.dcli.create_host_config(
             network_mode=self.network_mode,
-            privileged=False,  # no longer need privileged, using net_admin capability instead
+            privileged=priv,  # no longer need privileged, using net_admin capability instead
             binds=self.volumes,
             tmpfs=self.tmpfs,
             publish_all_ports=self.publish_all_ports,
