@@ -28,6 +28,7 @@ while True:
         os.system("sudo " + app_path)
         break
     except:
-        print("Exception happen. retry again!")
+        print("Exception happen. program is over!")
+        break
 
 print("Over..")
