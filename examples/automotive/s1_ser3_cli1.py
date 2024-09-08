@@ -49,7 +49,7 @@ def main():
     pdb.set_trace()
 
     for n in range(1, n_server+1):
-        servers.append(net.addDocker(f"server{n}", dimage="v2architect/someip:v00.01",
+        servers.append(net.addDocker(f"server{n}", dimage="v2architect/someip:v00.02",
                                      ip=f"10.0.0.{n}", mac=f"00:00:00:00:00:0{n}",
                                      #cpu_shares=20,
                                      #cpuset_cpus="0",
@@ -58,7 +58,7 @@ def main():
                                      Privileged=True,
                                      environment=option_env))
 
-    client = net.addDocker('client', dimage="v2architect/someip:v00.01",
+    client = net.addDocker('client', dimage="v2architect/someip:v00.02",
                                      ip='10.0.0.10', mac="00:00:00:00:00:10",
                                      #cpu_shares=80,
                                      #cpuset_cpus="0",

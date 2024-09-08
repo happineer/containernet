@@ -43,7 +43,7 @@ def main():
         "/home/jhshin/work/someip_app:/root/someip_app"
     ]
 
-    server1 = net.addDocker('server1', dimage="v2architect/someip:v00.01",
+    server1 = net.addDocker('server1', dimage="v2architect/someip:v00.02",
                                      ip='10.0.0.1', mac="00:00:00:00:00:01",
                                      #cpu_shares=20,
                                      #cpuset_cpus="0",
@@ -52,7 +52,7 @@ def main():
                                      Privileged=True,
                                      environment=option_env)
 
-    server2 = net.addDocker('server2', dimage="v2architect/someip:v00.01",
+    server2 = net.addDocker('server2', dimage="v2architect/someip:v00.02",
                                      ip='10.0.0.2', mac="00:00:00:00:00:02",
                                      #cpu_shares=20,
                                      #cpuset_cpus="0",
@@ -62,7 +62,7 @@ def main():
                                      environment=option_env)
 
 
-    client = net.addDocker('client', dimage="v2architect/someip:v00.01",
+    client = net.addDocker('client', dimage="v2architect/someip:v00.02",
                                      ip='10.0.0.3', mac="00:00:00:00:00:03",
                                      #cpu_shares=80,
                                      #cpuset_cpus="0",
