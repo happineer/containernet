@@ -96,15 +96,25 @@ def main():
             route_setup_cmd = f"route add -n {m_ip} {vECU.name}-eth0"
             info(vECU.cmd(route_setup_cmd) + "\n")
 
+    info(c_sw.cmd('ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=NORMAL"' + '\n'))
+
     # run background process
     # - SOME/IP routingmanager daemon)
     # - PTP daemon (NOT WORKING...)
     for vECU in vECUs:
-        time.sleep(1)
         info(vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &') + "\n")
+        time.sleep(1)
 
-    time.sleep(1)
-    info(c_sw.cmd('ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=NORMAL"' + '\n'))
+    for vECU in vECUs:
+        if vECU.name == 'zone_gw_fl':
+            info("[VehiclePose] Start Server! at zone_gw_fl !!\n")
+            vECU.cmd('/root/someip_app/services/VehiclePose/run_server.sh udp &')
+        if vECU.name == 'ivi':
+            info("[VehiclePose] Start Client! at IVI!!\n")
+            vECU.cmd('/root/someip_app/services/VehiclePose/run_client.sh udp &')
+        time.sleep(1)
+
+
 
     CLI(net)
     net.stop()
