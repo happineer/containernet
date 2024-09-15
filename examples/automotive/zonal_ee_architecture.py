@@ -31,6 +31,7 @@ vols = [
     "/lib32:/lib32",
     "/lib64:/lib64",
     "/sys:/sys",
+    "/home/jhshin/work/someip_app/tmp:/tmp/uds",
     "/home/jhshin/work/someip_app:/root/someip_app"
 ]
 
@@ -82,38 +83,96 @@ def main():
     info('*** Starting to execute commands\n')
     multicast_ip_list = [
         "239.10.0.1",   # SOME/IP service discovery (239.10.0.1-5)
-        "239.10.0.2",
-        "239.10.0.3",
-        "239.10.0.4",
-        "239.10.0.5",
+        "239.10.0.11",
+        "239.10.0.12",
+        "239.10.0.13",
+        "239.10.0.14",
+        "239.10.0.15",
         #"224.0.0.107",  # PTP?
         #"224.0.1.129",  # PTP?
         "224.0.0.22"    # IGMP
     ]
 
     for vECU in vECUs:
+        info(f"[{vECU.name}] multicast route setting\n")
         for m_ip in multicast_ip_list:
             route_setup_cmd = f"route add -n {m_ip} {vECU.name}-eth0"
-            info(vECU.cmd(route_setup_cmd) + "\n")
+            vECU.cmd(route_setup_cmd)
 
-    info(c_sw.cmd('ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=NORMAL"' + '\n'))
+    info(f"OVS actions=NORMAL rule setting\n")
+    c_sw.cmd('ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=NORMAL"')
 
     # run background process
     # - SOME/IP routingmanager daemon)
     # - PTP daemon (NOT WORKING...)
     for vECU in vECUs:
-        info(vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &') + "\n")
+        info(f"[{vECU.name}] run routing managerd\n")
+        vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &')
         time.sleep(1)
 
-    for vECU in vECUs:
-        if vECU.name == 'zone_gw_fl':
-            info("[VehiclePose] Start Server! at zone_gw_fl !!\n")
-            vECU.cmd('/root/someip_app/services/VehiclePose/run_server.sh udp &')
-        if vECU.name == 'ivi':
-            info("[VehiclePose] Start Client! at IVI!!\n")
-            vECU.cmd('/root/someip_app/services/VehiclePose/run_client.sh udp &')
+
+    vECU_dict = {vECU.name: vECU for vECU in vECUs}
+    # SOME/IP Service
+    service_node = {
+        "SteeringWheel": {
+            "server": "zone_gw_fl",
+            "clients": ["adas"]
+        },
+        "TrafficLight": {
+            "server": "telematics",
+            "clients": ["adas"]
+        },
+        "Intersection": {
+            "server": "telematics",
+            "clients": ["adas"]
+        },
+        "ObjectDetection": {
+            "server": "adas",
+            "clients": ["ivi"]
+        },
+        "VehicleSpeed": {
+            "server": "zone_gw_rr",
+            "clients": ["cluster", "ivi", "adas"]
+        },
+        "VehiclePose": {
+            "server": "zone_gw_rl",
+            "clients": ["adas"]
+        },
+        "VehicleAccel": {
+            "server": "zone_gw_fr",
+            "clients": ["adas"]
+        },
+        "VehicleLocation": {
+            "server": "telematics",
+            "clients": ["ivi", "cluster"]
+        },
+        "Transmission": {
+            "server": "zone_gw_fl",
+            "clients": ["adas", "ivi", "cluster"]
+        },
+        "Driving": {
+            "server": "zone_gw_fr",
+            "clients": ["adas"]
+        },
+        "Collision": {
+            "server": "adas",
+            "clients": ["ivi", "cluster"]
+        }
+    }
+
+    # Server/Client SOME/IP service start
+    for service, node_info in service_node.items():
+        server, clients = node_info['server'], node_info['clients']
+        run_server_cmd = f'/root/someip_app/services/{service}/run_server.sh udp 2 &'
+        info(f"[{server}] {run_server_cmd}\n")
+        vECU_dict[server].cmd(run_server_cmd)
         time.sleep(1)
 
+        for client in clients:
+            run_client_cmd = f'/root/someip_app/services/{service}/run_client.sh udp 2 &'
+            info(f"[{client}] {run_client_cmd}\n")
+            vECU_dict[client].cmd(run_client_cmd)
+            time.sleep(1)
 
 
     CLI(net)
