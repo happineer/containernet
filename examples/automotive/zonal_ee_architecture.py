@@ -94,14 +94,37 @@ def main():
         net.addLink(vECU, c_sw, cls=Link, bw=100)
     net.start()
 
+    vlan_ids = [1]
+    for vECU in vECUs:
+        for vlan_id in vlan_ids:
+            info(f"[{vECU.name}] add vlan {vlan_id}\n")
+            vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
+            time.sleep(1)
+
+    # run PTP daemon
+    info(f"[Telematics] run PTP master\n")
+    info(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S & \n')
+    telematics.cmd(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S &')
+    time.sleep(1)
+
+    vlan_ids = [10]
+    for vECU in vECUs:
+        for vlan_id in vlan_ids:
+            info(f"[{vECU.name}] add vlan {vlan_id}\n")
+            vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
+            time.sleep(0.5)
+
+
+
+
     info('*** Starting to execute commands\n')
     multicast_ip_list = [
-        "239.10.0.1",   # SOME/IP service discovery (239.10.0.1-5)
-        "239.10.0.11",
-        "239.10.0.12",
-        "239.10.0.13",
-        "239.10.0.14",
-        "239.10.0.15",
+        "239.10.3.1",   # SOME/IP service discovery (239.10.0.1-5)
+        "239.10.3.11",
+        "239.10.3.12",
+        "239.10.3.13",
+        "239.10.3.14",
+        "239.10.3.15",
         #"224.0.0.107",  # PTP?
         #"224.0.1.129",  # PTP?
         #"224.0.0.22"    # IGMP
@@ -140,14 +163,7 @@ def main():
         time.sleep(1)
 
 
-    info(f"[Telematics] add vlan 1\n")
-    telematics.cmd(f'/root/someip_app/utils/add_vlan.sh 1')
 
-    # run PTP daemon
-    info(f"[Telematics] run PTP master\n")
-    info(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S & \n')
-    telematics.cmd(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S &')
-    time.sleep(1)
 
 
     vECU_dict = {vECU.name: vECU for vECU in vECUs}
