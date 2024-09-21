@@ -13,14 +13,14 @@ import time
 setLogLevel('info')
 
 node_conf = {
-    "zone_gw_fl": { "ip": "10.0.0.1/16", "mac": "00:00:00:00:00:01" },
-    "zone_gw_fr": { "ip": "10.0.0.2/16", "mac": "00:00:00:00:00:02" },
-    "zone_gw_rl": { "ip": "10.0.0.3/16", "mac": "00:00:00:00:00:03" },
-    "zone_gw_rr": { "ip": "10.0.0.4/16", "mac": "00:00:00:00:00:04" },
-    "ivi":        { "ip": "10.0.0.5/16", "mac": "00:00:00:00:00:05" },
-    "cluster":    { "ip": "10.0.0.6/16", "mac": "00:00:00:00:00:06" },
-    "adas":       { "ip": "10.0.0.7/16", "mac": "00:00:00:00:00:07" },
-    "telematics": { "ip": "10.0.0.8/16", "mac": "00:00:00:00:00:08" },
+    "zone_gw_fl": { "ip": "10.0.0.1/16", "mac": "00:00:00:00:00:01", "id": 1},
+    "zone_gw_fr": { "ip": "10.0.0.2/16", "mac": "00:00:00:00:00:02", "id": 2},
+    "zone_gw_rl": { "ip": "10.0.0.3/16", "mac": "00:00:00:00:00:03", "id": 3},
+    "zone_gw_rr": { "ip": "10.0.0.4/16", "mac": "00:00:00:00:00:04", "id": 4},
+    "ivi":        { "ip": "10.0.0.5/16", "mac": "00:00:00:00:00:05", "id": 5},
+    "cluster":    { "ip": "10.0.0.6/16", "mac": "00:00:00:00:00:06", "id": 6},
+    "adas":       { "ip": "10.0.0.7/16", "mac": "00:00:00:00:00:07", "id": 7},
+    "telematics": { "ip": "10.0.0.8/16", "mac": "00:00:00:00:00:08", "id": 8},
 }
 
 # DON'T ADD host's (/tmp) -> impact to the behavior of vsomeip
@@ -80,14 +80,16 @@ def main():
         zone_gw_fl, zone_gw_fr, zone_gw_rl, zone_gw_rr,
         ivi,        cluster,    adas,       telematics
     ]
+
     '''
 
     # debug
     info('*** Setup In-vehicle network\n')
     #adas       = create_node(net, "adas",       cpu="7,8",   mem=4 * 1024 * 1024 * 1024)
+    zone_gw_fl = create_node(net, "zone_gw_fl", cpu="0",     mem=1 * 1024 * 1024 * 1024)
     ivi        = create_node(net, "ivi",        cpu="4,5",   mem=4 * 1024 * 1024 * 1024)
     telematics = create_node(net, "telematics", cpu="9",     mem=1 * 1024 * 1024 * 1024)
-    vECUs = [telematics, ivi]
+    vECUs = [telematics, ivi, zone_gw_fl]
 
     for vECU in vECUs:
         #net.addLink(vECU, c_sw, cls=TCLink, bw=100, delay='1ms')
@@ -95,16 +97,13 @@ def main():
     net.start()
 
 
-
-
-
     # RUNTIME STEP CONFIG
     VLAN1_SETTING = True
     VLAN2_3_SETTING = True
+    ARP_SETTING = True
     MULTICAST_SETTING = True
     ROUTING_MANAGER = True
-
-
+    SOMEIP_SERVICE = False
 
 
     if VLAN1_SETTING:
@@ -131,6 +130,17 @@ def main():
                 vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
                 time.sleep(1)
 
+    # ARP setting
+    if ARP_SETTING:
+        for vECU in vECUs:
+            vECU_ids = [1, 2, 3, 4, 5, 6, 7, 8]
+            vECU_ids.remove(node_conf[vECU.name]["id"])
+            for vlan_id in vlan_ids:
+                for vECU_id in vECU_ids:
+                    info(f'arp -s 10.0.{vlan_id}.{vECU_id} 00:00:00:00:00:0{vECU_id} -i veth0.{vlan_id}\n')
+                    vECU.cmd(f'arp -s 10.0.{vlan_id}.{vECU_id} 00:00:00:00:00:0{vECU_id} -i veth0.{vlan_id}')
+                    time.sleep(0.2)
+
 
     info('*** Starting to execute commands\n')
     someip_multicast_ip_list = [
@@ -152,14 +162,16 @@ def main():
         for vECU in vECUs:
             info(f"[{vECU.name}] multicast route setting\n")
             for m_ip in someip_multicast_ip_list:
+                info(f"[{vECU.name}] route add -n {m_ip} veth0.3\n")
                 route_setup_cmd = f"route add -n {m_ip} veth0.3"
                 vECU.cmd(route_setup_cmd)
-                time.sleep(1)
+                time.sleep(0.5)
 
             for m_ip in ptp_multicast_ip_list:
+                info(f"[{vECU.name}] route add -n {m_ip} veth0.1\n")
                 route_setup_cmd = f"route add -n {m_ip} veth0.1"
                 vECU.cmd(route_setup_cmd)
-                time.sleep(1)
+                time.sleep(0.5)
 
                 #vECU.cmd(f'ip link set {vECU.name}-eth0 txqueuelen 0')
                 #vECU.cmd(f'ip link set {vECU.name}-eth0 txqueuelen 0')
@@ -168,6 +180,7 @@ def main():
                 #time.sleep(0.5)
                 #vECU.cmd("route add -net 224.0.0.0 netmask 255.255.255.0 dev {vECU.name}-eth0")
                 #vECU.cmd("route add -net 224.0.1.0 netmask 255.255.255.0 dev {vECU.name}-eth0")
+    time.sleep(1)
 
     info(f"OVS actions=NORMAL rule setting\n")
     c_sw.cmd('ovs-ofctl add-flow s1 "dl_type=0x0800,nw_proto=2,actions=drop"')
@@ -182,7 +195,7 @@ def main():
         for vECU in vECUs:
             info(f"[{vECU.name}] run routing managerd\n")
             vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &')
-            time.sleep(1)
+            time.sleep(2)
 
     vECU_dict = {vECU.name: vECU for vECU in vECUs}
     # SOME/IP Service
@@ -233,23 +246,30 @@ def main():
         }
     }
 
-    # Server/Client SOME/IP service start
-    for service, node_info in service_node.items():
-        # debug
-        continue
+    # debug
+    service_node = {
+        "VehicleLocation": {
+            "server": "telematics",
+            "clients": ["ivi"]
+        }
+    }
 
-        server, clients = node_info['server'], node_info['clients']
+    if SOMEIP_SERVICE:
+        # Server/Client SOME/IP service start
+        for service, node_info in service_node.items():
 
-        run_server_cmd = f'/root/someip_app/services/{service}/run_server.sh udp 2 &'
-        info(f"[{server}] {run_server_cmd}\n")
-        vECU_dict[server].cmd(run_server_cmd)
-        time.sleep(2)
+            server, clients = node_info['server'], node_info['clients']
 
-        for client in clients:
-            run_client_cmd = f'/root/someip_app/services/{service}/run_client.sh udp 2 &'
-            info(f"[{client}] {run_client_cmd}\n")
-            vECU_dict[client].cmd(run_client_cmd)
+            run_server_cmd = f'/root/someip_app/services/{service}/run_server.sh udp 2 &'
+            info(f"[{server}] {run_server_cmd}\n")
+            vECU_dict[server].cmd(run_server_cmd)
             time.sleep(2)
+
+            for client in clients:
+                run_client_cmd = f'/root/someip_app/services/{service}/run_client.sh udp 2 &'
+                info(f"[{client}] {run_client_cmd}\n")
+                vECU_dict[client].cmd(run_client_cmd)
+                time.sleep(2)
 
 
     CLI(net)
