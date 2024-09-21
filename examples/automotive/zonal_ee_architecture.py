@@ -98,37 +98,26 @@ def main():
 
 
     # RUNTIME STEP CONFIG
-    VLAN1_SETTING = True
-    VLAN2_3_SETTING = True
+    VLAN_SETTING = True
     ARP_SETTING = True
     MULTICAST_SETTING = True
-    ROUTING_MANAGER = True
+    PTP_RUN = True
+    ROUTING_MANAGER = False
     SOMEIP_SERVICE = False
 
 
-    if VLAN1_SETTING:
-        vlan_ids = [1]
-        for vECU in vECUs:
-            for vlan_id in vlan_ids:
-                info(f"[{vECU.name}] add vlan {vlan_id}\n")
-                vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
-                time.sleep(1)
-
-    # run PTP daemon
-    info(f"[Telematics] run PTP master\n")
-    info(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S & \n')
-    telematics.cmd(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S &')
-    time.sleep(5)
-
-    if VLAN2_3_SETTING:
+    # VLAN setting
+    if VLAN_SETTING:
+        # VLAN1: PTP
         # VLAN2: AVTP
         # VLAN3: SOME/IP
-        vlan_ids = [2, 3]
+        vlan_ids = [1, 2, 3]
         for vECU in vECUs:
             for vlan_id in vlan_ids:
                 info(f"[{vECU.name}] add vlan {vlan_id}\n")
                 vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
                 time.sleep(1)
+
 
     # ARP setting
     if ARP_SETTING:
@@ -142,23 +131,24 @@ def main():
                     time.sleep(0.2)
 
 
-    info('*** Starting to execute commands\n')
-    someip_multicast_ip_list = [
-        "239.10.3.1",   # SOME/IP service discovery (239.10.0.1-5)
-        "239.10.3.11",
-        "239.10.3.12",
-        "239.10.3.13",
-        "239.10.3.14",
-        "239.10.3.15",
-        #"224.0.0.22"    # IGMP
-    ]
-    ptp_multicast_ip_list = [
-        "224.0.0.107",  # PTP?
-        "224.0.1.129",  # PTP?
-        "224.0.1.130"  # PTP?
-    ]
-
+    # multicast setting
     if MULTICAST_SETTING:
+        info('*** Starting to execute commands\n')
+        someip_multicast_ip_list = [
+            "239.10.3.1",   # SOME/IP service discovery (239.10.0.x)
+            "239.10.3.11",
+            "239.10.3.12",
+            "239.10.3.13",
+            "239.10.3.14",
+            "239.10.3.15",
+            #"224.0.0.22"    # IGMP
+        ]
+        ptp_multicast_ip_list = [
+            "224.0.0.107",  # PTP?
+            "224.0.1.129",  # PTP?
+            "224.0.1.130"  # PTP?
+        ]
+
         for vECU in vECUs:
             info(f"[{vECU.name}] multicast route setting\n")
             for m_ip in someip_multicast_ip_list:
@@ -187,6 +177,15 @@ def main():
     c_sw.cmd('ovs-ofctl add-flow s1 "dl_dst=01:00:5e:00:01:81,actions=NORMAL"')
     c_sw.cmd('ovs-vsctl set Bridge s1 mcast_snooping_enable=true')
     c_sw.cmd('ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=NORMAL"')
+
+
+    if PTP_RUN:
+        # run PTP daemon
+        info(f"[Telematics] run PTP master\n")
+        info(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S & \n')
+        telematics.cmd(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S &')
+        time.sleep(5)
+
 
     # run background process
     # - SOME/IP routingmanager daemon)
