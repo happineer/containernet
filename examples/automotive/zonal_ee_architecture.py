@@ -94,55 +94,80 @@ def main():
         net.addLink(vECU, c_sw, cls=Link, bw=100)
     net.start()
 
-    vlan_ids = [1]
-    for vECU in vECUs:
-        for vlan_id in vlan_ids:
-            info(f"[{vECU.name}] add vlan {vlan_id}\n")
-            vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
-            time.sleep(1)
+
+
+
+
+    # RUNTIME STEP CONFIG
+    VLAN1_SETTING = True
+    VLAN2_3_SETTING = True
+    MULTICAST_SETTING = True
+    ROUTING_MANAGER = False
+
+
+
+
+    if VLAN1_SETTING:
+        vlan_ids = [1]
+        for vECU in vECUs:
+            for vlan_id in vlan_ids:
+                info(f"[{vECU.name}] add vlan {vlan_id}\n")
+                vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
+                time.sleep(1)
 
     # run PTP daemon
     info(f"[Telematics] run PTP master\n")
     info(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S & \n')
     telematics.cmd(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S &')
-    time.sleep(1)
+    time.sleep(5)
 
-    vlan_ids = [10]
-    for vECU in vECUs:
-        for vlan_id in vlan_ids:
-            info(f"[{vECU.name}] add vlan {vlan_id}\n")
-            vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
-            time.sleep(0.5)
-
-
+    if VLAN2_3_SETTING:
+        # VLAN2: AVTP
+        # VLAN3: SOME/IP
+        vlan_ids = [2, 3]
+        for vECU in vECUs:
+            for vlan_id in vlan_ids:
+                info(f"[{vECU.name}] add vlan {vlan_id}\n")
+                vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
+                time.sleep(1)
 
 
     info('*** Starting to execute commands\n')
-    multicast_ip_list = [
+    someip_multicast_ip_list = [
         "239.10.3.1",   # SOME/IP service discovery (239.10.0.1-5)
         "239.10.3.11",
         "239.10.3.12",
         "239.10.3.13",
         "239.10.3.14",
         "239.10.3.15",
-        #"224.0.0.107",  # PTP?
-        #"224.0.1.129",  # PTP?
         #"224.0.0.22"    # IGMP
     ]
+    ptp_multicast_ip_list = [
+        "224.0.0.107",  # PTP?
+        "224.0.1.129",  # PTP?
+        "224.0.1.130"  # PTP?
+    ]
 
-    for vECU in vECUs:
-        info(f"[{vECU.name}] multicast route setting\n")
-        for m_ip in multicast_ip_list:
-            route_setup_cmd = f"route add -n {m_ip} {vECU.name}-eth0"
-            vECU.cmd(route_setup_cmd)
+    if MULTICAST_SETTING:
+        for vECU in vECUs:
+            info(f"[{vECU.name}] multicast route setting\n")
+            for m_ip in someip_multicast_ip_list:
+                route_setup_cmd = f"route add -n {m_ip} veth0.3"
+                vECU.cmd(route_setup_cmd)
+                time.sleep(1)
 
-            #vECU.cmd(f'ip link set {vECU.name}-eth0 txqueuelen 0')
-            #vECU.cmd(f'ip link set {vECU.name}-eth0 txqueuelen 0')
-            #sudo ifconfig telematics-eth0 broadcast 10.0.255.255
+            for m_ip in ptp_multicast_ip_list:
+                route_setup_cmd = f"route add -n {m_ip} veth0.1"
+                vECU.cmd(route_setup_cmd)
+                time.sleep(1)
 
-            #time.sleep(0.5)
-            #vECU.cmd("route add -net 224.0.0.0 netmask 255.255.255.0 dev {vECU.name}-eth0")
-            #vECU.cmd("route add -net 224.0.1.0 netmask 255.255.255.0 dev {vECU.name}-eth0")
+                #vECU.cmd(f'ip link set {vECU.name}-eth0 txqueuelen 0')
+                #vECU.cmd(f'ip link set {vECU.name}-eth0 txqueuelen 0')
+                #sudo ifconfig telematics-eth0 broadcast 10.0.255.255
+
+                #time.sleep(0.5)
+                #vECU.cmd("route add -net 224.0.0.0 netmask 255.255.255.0 dev {vECU.name}-eth0")
+                #vECU.cmd("route add -net 224.0.1.0 netmask 255.255.255.0 dev {vECU.name}-eth0")
 
     info(f"OVS actions=NORMAL rule setting\n")
     c_sw.cmd('ovs-ofctl add-flow s1 "dl_type=0x0800,nw_proto=2,actions=drop"')
@@ -153,18 +178,12 @@ def main():
     # run background process
     # - SOME/IP routingmanager daemon)
     # - PTP daemon (NOT WORKING...)
-    for vECU in vECUs:
-        #debug
-        continue
-
-        if vECU.name != 'telematics':
-            info(f"[{vECU.name}] run routing managerd\n")
-            vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &')
-        time.sleep(1)
-
-
-
-
+    if ROUTING_MANAGER:
+        for vECU in vECUs:
+            if vECU.name != 'telematics':
+                info(f"[{vECU.name}] run routing managerd\n")
+                vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &')
+            time.sleep(1)
 
     vECU_dict = {vECU.name: vECU for vECU in vECUs}
     # SOME/IP Service
