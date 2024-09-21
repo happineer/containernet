@@ -139,19 +139,15 @@ def main():
             vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &')
         time.sleep(1)
 
+
+    info(f"[Telematics] add vlan 1\n")
+    telematics.cmd(f'/root/someip_app/utils/add_vlan.sh 1')
+
     # run PTP daemon
-    for vECU in vECUs:
-        #debug
-        continue
-        if vECU.name == 'telematics':
-            info(f"[{vECU.name}] run PTP master\n")
-            info(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i {vECU.name}-eth0 -S & \n')
-            vECU.cmd(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i {vECU.name}-eth0 -S &')
-        #else:
-        #    info(f"[{vECU.name}] run PTP slave\n")
-        #    info(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i {vECU.name}-eth0 -S -s -2 & \n')
-        #    vECU.cmd(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i {vECU.name}-eth0 -S -s -2 &')
-        time.sleep(1)
+    info(f"[Telematics] run PTP master\n")
+    info(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S & \n')
+    telematics.cmd(f'/usr/sbin/ptp4l -f /etc/linuxptp/ptp4l.conf -i veth0.1 -S &')
+    time.sleep(1)
 
 
     vECU_dict = {vECU.name: vECU for vECU in vECUs}
