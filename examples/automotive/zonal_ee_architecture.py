@@ -102,7 +102,7 @@ def main():
     VLAN1_SETTING = True
     VLAN2_3_SETTING = True
     MULTICAST_SETTING = True
-    ROUTING_MANAGER = False
+    ROUTING_MANAGER = True
 
 
 
@@ -180,9 +180,8 @@ def main():
     # - PTP daemon (NOT WORKING...)
     if ROUTING_MANAGER:
         for vECU in vECUs:
-            if vECU.name != 'telematics':
-                info(f"[{vECU.name}] run routing managerd\n")
-                vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &')
+            info(f"[{vECU.name}] run routing managerd\n")
+            vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &')
             time.sleep(1)
 
     vECU_dict = {vECU.name: vECU for vECU in vECUs}
