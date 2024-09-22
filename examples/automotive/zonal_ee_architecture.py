@@ -198,20 +198,14 @@ def main():
 
 
     # run PTP daemon
+    # [Note!] PTP slave is not working via containernet
     if PTP_RUN:
         info(f"Run PTP master/slave \n")
-        for vECU in vECUs:
-            if vECU.name == "telematics":
-                info(f"[{vECU.name}] PTP master\n")
-                info(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-master.cfg & \n')
-                telematics.cmd(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-master.cfg & \n')
-            else:
-                info(f"[{vECU.name}] PTP slave\n")
-                info(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-slave.cfg & \n')
-                ivi.cmd(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/configs/automotive-slave.cfg & \n')
-            time.sleep(1)
-        time.sleep(5)
-
+        info(f"[Telematics] PTP master\n")
+        info(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-master.cfg & \n')
+        telematics.cmd(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-master.cfg & \n')
+        time.sleep(1)
+        
 
     if TFTP_RUN:
         info(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/logs & \n')
