@@ -193,6 +193,7 @@ def main():
     #c_sw.cmd('ovs-ofctl add-flow s1 "dl_type=0x0800,nw_proto=2,actions=drop"')
     #c_sw.cmd('ovs-ofctl add-flow s1 "priority=100,dl_dst=01:00:5e:00:01:81,dl_vlan=1,actions=strip_vlan,NORMAL"')
     #c_sw.cmd('ovs-vsctl set Bridge s1 mcast_snooping_enable=true')
+    c_sw.cmd('ovs-ofctl -O OpenFlow13 add-flow s1 "priority=200,dl_dst=91:ef:00:00:fe:00,dl_vlan=2,actions=FLOOD"')
     c_sw.cmd('ovs-ofctl -O OpenFlow13 add-flow s1 "priority=100,dl_dst=01:80:c2:00:00:0e,dl_vlan=1,actions=FLOOD"')
     c_sw.cmd('ovs-ofctl -O OpenFlow13 add-flow s1 "priority=0,actions=NORMAL"')
 
