@@ -123,6 +123,7 @@ def main():
     MULTICAST_SETTING = True
     PTP_RUN = True
     TFTP_RUN = True
+    AVTP_RUN = True
     ROUTING_MANAGER = False
     SOMEIP_SERVICE = False
 
@@ -212,6 +213,11 @@ def main():
         info(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/logs & \n')
         ivi.cmd(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/logs & \n')
 
+    if AVTP_RUN:
+        adas.cmd('~/someip_app/libavtp/my_example/ieciidc-listener -i veth0.2 -d 91:ef:00:00:fe:00 &')
+        time.sleep(1)
+        ivi.cmd(f'python3 ~/someip_app/libavtp/my_example/mpeg-ts-timesync-stdout.py | ~/someip_app/libavtp/my_example/ieciidc-talker -i veth0.2 --prio=1 -d 91:ef:00:00:fe:00 &')
+        time.sleep(1)
 
     # SOME/IP routingmanager daemon
     # [Note!] NOT working via containernet
