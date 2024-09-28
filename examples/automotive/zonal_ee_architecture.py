@@ -46,11 +46,13 @@ option_env = {
     "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/someip_app/scripts"
 }   
 def calc_elapsed_time(name, time_s, time_e):
+    elapsed_time = time_e - time_s
     print("")
     print(f"=" * 60)
-    print(f"[Elapsed Time][{name}] {format(time_e - time_s, '.3f')}s)")
+    print(f"[Elapsed Time][{name}] {format(elapsed_time, '.3f')})")
     print(f"=" * 60)
     print("")
+    return elapsed_time
 
 def create_node(net, name, cpu, mem, dimage="v2architect/someip:v00.02"):
     global vols
@@ -108,7 +110,7 @@ def main():
     adas       = create_node(net, "adas",       cpu="7,8",   mem=4 * 1024 * 1024 * 1024)
     telematics = create_node(net, "telematics", cpu="9",     mem=1 * 1024 * 1024 * 1024)
     node_creation_end = time.time()
-    calc_elapsed_time("vECU creation time", \
+    t_node_creation = calc_elapsed_time("vECU creation time", \
             node_creation_start, \
             node_creation_end)
 
@@ -134,7 +136,7 @@ def main():
         net.addLink(vECU, c_sw, cls=TCLink, bw=100)
     net.start()
     link_creation_end = time.time()
-    calc_elapsed_time("Virtual Network Link creation time", \
+    t_link_creation = calc_elapsed_time("Virtual Network Link creation time", \
             link_creation_start, \
             link_creation_end)
 
@@ -145,12 +147,13 @@ def main():
     MULTICAST_SETTING = True
     PTP_RUN = True
     TFTP_RUN = True
-    AVTP_RUN = False
+    AVTP_RUN = True
     ROUTING_MANAGER = False
     SOMEIP_SERVICE = False
 
 
     # VLAN setting
+    t_vlan_setup = 0
     if VLAN_SETTING:
         vlan_setup_start = time.time()
         # VLAN1: PTP
@@ -163,12 +166,13 @@ def main():
                 vECU.cmd(f'/root/someip_app/utils/add_vlan.sh {vlan_id}')
                 #time.sleep(0.1)
         vlan_setup_end = time.time()
-        calc_elapsed_time("VLAN setup time", \
+        t_vlan_setup = calc_elapsed_time("VLAN setup time", \
                 vlan_setup_start, \
                 vlan_setup_end)
 
 
     # ARP setting
+    t_arp_setup = 0
     if ARP_SETTING:
         arp_setup_start = time.time()
         for vECU in vECUs:
@@ -182,12 +186,13 @@ def main():
                     vECU.cmd(f'arp -s 10.0.{vlan_id}.{vECU_id} 00:00:00:00:00:0{vECU_id} -i veth0.{vlan_id}')
                     #time.sleep(0.1)
         arp_setup_end = time.time()
-        calc_elapsed_time("ARP setup time", \
+        t_arp_setup = calc_elapsed_time("ARP setup time", \
                 arp_setup_start, \
                 arp_setup_end)
 
 
     # multicast setting
+    t_mcast_setup = 0
     if MULTICAST_SETTING:
         mcast_setup_start = time.time()
         info('*** Starting to execute commands\n')
@@ -223,7 +228,7 @@ def main():
                     vECU.cmd(route_setup_cmd)
                     #time.sleep(0.1)
         mcast_setup_end = time.time()
-        calc_elapsed_time("Multicast route setup time", \
+        t_mcast_setup = calc_elapsed_time("Multicast route setup time", \
                 mcast_setup_start, \
                 mcast_setup_end)
 
@@ -239,6 +244,7 @@ def main():
 
     # run PTP daemon
     # [Note!] PTP slave is not working via containernet
+    t_ptp_setup = 0
     if PTP_RUN:
         ptp_setup_start = time.time()
         info(f"Run PTP master/slave \n")
@@ -246,32 +252,37 @@ def main():
         info(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-master.cfg & \n')
         telematics.cmd(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-master.cfg & \n')
         ptp_setup_end = time.time()
-        calc_elapsed_time("PTP master init time", \
+        t_ptp_setup = calc_elapsed_time("PTP master init time", \
                 ptp_setup_start, \
                 ptp_setup_end)
         
 
+    t_tftp_setup = 0
     if TFTP_RUN:
         tftp_setup_start = time.time()
         info(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/logs & \n')
         ivi.cmd(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/logs & \n')
         tftp_setup_end = time.time()
-        calc_elapsed_time("TFTP server init time", \
+        t_tftp_setup = calc_elapsed_time("TFTP server init time", \
                 tftp_setup_start, \
                 tftp_setup_end)
 
+    t_avtp_setup = 0
     if AVTP_RUN:
         avtp_setup_start = time.time()
-        adas.cmd('~/someip_app/libavtp/my_example/ieciidc-listener -i veth0.2 -d 91:ef:00:00:fe:00 &')
-        time.sleep(0.5)
-        ivi.cmd(f'python3 ~/someip_app/libavtp/my_example/mpeg-ts-timesync-stdout.py | ~/someip_app/libavtp/my_example/ieciidc-talker -i veth0.2 --prio=1 -d 91:ef:00:00:fe:00 &')
+        #adas.cmd('~/someip_app/libavtp/my_example/ieciidc-listener -i veth0.2 -d 91:ef:00:00:fe:00 &')
+        #time.sleep(0.5)
+        #ivi.cmd(f'python3 ~/someip_app/libavtp/my_example/mpeg-ts-timesync-stdout.py | ~/someip_app/libavtp/my_example/ieciidc-talker -i veth0.2 --prio=1 -d 91:ef:00:00:fe:00 &')
+        zone_gw_fr.cmd(f'python3 /root/someip_app/scripts/avtp_talker.py front &')
+        zone_gw_rr.cmd(f'python3 /root/someip_app/scripts/avtp_talker.py rear &')
         avtp_setup_end = time.time()
-        calc_elapsed_time("AVTP talker init time", \
+        t_avtp_setup = calc_elapsed_time("AVTP talker init time", \
                 avtp_setup_start, \
                 avtp_setup_end)
 
     # SOME/IP routingmanager daemon
     # [Note!] NOT working via containernet
+    t_routingm_setup = 0
     if ROUTING_MANAGER:
         routingm_setup_start = time.time()
         for vECU in vECUs:
@@ -279,7 +290,7 @@ def main():
             vECU.cmd('/root/someip_app/services/routingmanager/run_routingd.sh &')
             time.sleep(0.2)
         routingm_setup_end = time.time()
-        calc_elapsed_time("RoutingManager init time", \
+        t_routingm_setup = calc_elapsed_time("RoutingManager init time", \
                 routingm_setup_start, \
                 routingm_setup_end)
     
@@ -377,6 +388,7 @@ def main():
     '''
 
     # [Note!] NOT working via containernet
+    t_someip_setup = 0
     if SOMEIP_SERVICE:
         someip_setup_start = time.time()
         # [1] Server start
@@ -403,7 +415,7 @@ def main():
                 info("sleep -> 0.5 after run_client.sh\n")
                 time.sleep(0.5)
         someip_setup_end = time.time()
-        calc_elapsed_time("SOME/IP service", \
+        t_someip_setup = calc_elapsed_time("SOME/IP service", \
                         someip_setup_start, \
                         someip_setup_end)
 
@@ -413,6 +425,15 @@ def main():
     vivn_setup_elapsed = calc_elapsed_time("Virtualized IVN + vECU setup time", \
                                             vivn_setup_start,
                                             vivn_setup_end)
+
+
+    info(f"DEBUG===============\n")
+    info(f"node_creation: {format(t_node_creation, '.3f')}\n")
+    info(f"link_creation: {format(t_link_creation, '.3f')}\n")
+    info(f"vlan_setup:    {format(t_vlan_setup, '.3f')}\n")
+    info(f"arp/mcast:     {format(t_arp_setup+t_mcast_setup, '.3f')}\n")
+    info(f"ptp/avtp/tftp: {format(t_ptp_setup+t_avtp_setup+t_tftp_setup, '.3f')}\n")
+    info(f"DEBUG===============")
 
     info("=" * 50 + '\n')
     info(f"Virtualized IVN + vECUs(8) setup is completed! ({format(vivn_setup_elapsed_time, '.3f')}s)\n")
