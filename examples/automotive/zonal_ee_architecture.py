@@ -109,10 +109,6 @@ def main():
     cluster    = create_node(net, "cluster",    cpu="6",     mem=1 * 1024 * 1024 * 1024)
     adas       = create_node(net, "adas",       cpu="7,8",   mem=4 * 1024 * 1024 * 1024)
     telematics = create_node(net, "telematics", cpu="9",     mem=1 * 1024 * 1024 * 1024)
-    node_creation_end = time.time()
-    t_node_creation = calc_elapsed_time("vECU creation time", \
-            node_creation_start, \
-            node_creation_end)
 
     vECUs = [
         zone_gw_fl, zone_gw_fr, zone_gw_rl, zone_gw_rr,
@@ -120,7 +116,6 @@ def main():
     ]
 
     '''
-
     # debug
     info('*** Setup In-vehicle network\n')
     #adas       = create_node(net, "adas",       cpu="7,8",   mem=4 * 1024 * 1024 * 1024)
@@ -129,6 +124,11 @@ def main():
     telematics = create_node(net, "telematics", cpu="9",     mem=1 * 1024 * 1024 * 1024)
     vECUs = [telematics, ivi, zone_gw_fl]
     '''
+
+    node_creation_end = time.time()
+    t_node_creation = calc_elapsed_time("vECU creation time", \
+            node_creation_start, \
+            node_creation_end)
 
     link_creation_start = time.time()
     for vECU in vECUs:
@@ -145,9 +145,9 @@ def main():
     VLAN_SETTING = True
     ARP_SETTING = True
     MULTICAST_SETTING = True
-    PTP_RUN = True
+    PTP_RUN = False
     TFTP_RUN = True
-    AVTP_RUN = True
+    AVTP_RUN = False
     ROUTING_MANAGER = False
     SOMEIP_SERVICE = False
 
@@ -206,12 +206,12 @@ def main():
             #"224.0.0.22"    # IGMP
         ]
 
-        ptp_multicast_ip_list = []
-        #ptp_multicast_ip_list = [
-        #    "224.0.0.107",  # PTP?
-        #    "224.0.1.129",  # PTP?
-        #    "224.0.1.130"  # PTP?
-        #]
+        #ptp_multicast_ip_list = []
+        ptp_multicast_ip_list = [
+            "239.0.1.107",  # PTP?
+            "239.0.1.129",  # PTP?
+            "239.0.1.130"  # PTP?
+        ]
 
         for vECU in vECUs:
             info(f"[{vECU.name}] multicast route setting\n")
@@ -221,7 +221,7 @@ def main():
                 vECU.cmd(route_setup_cmd)
                 #time.sleep(0.1)
 
-            if vECU.name == "telematics":
+            if vECU.name in ["telematics", "ivi"]:
                 for m_ip in ptp_multicast_ip_list:
                     info(f"[{vECU.name}] route add -n {m_ip} veth0.1\n")
                     route_setup_cmd = f"route add -n {m_ip} veth0.1"
@@ -251,6 +251,10 @@ def main():
         info(f"[Telematics] PTP master\n")
         info(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-master.cfg & \n')
         telematics.cmd(f'/root/someip_app/ptp/ptp4l -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-master.cfg & \n')
+        time.sleep(1)
+        info(f"[IVI] PTP slave\n")
+        info(f'/root/someip_app/ptp/ptp4l -s -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-slave.cfg & \n')
+        ivi.cmd(f'/root/someip_app/ptp/ptp4l -s -S -i veth0.1 -f /root/someip_app/ptp/configs/automotive-slave.cfg & \n')
         ptp_setup_end = time.time()
         t_ptp_setup = calc_elapsed_time("PTP master init time", \
                 ptp_setup_start, \
@@ -260,8 +264,8 @@ def main():
     t_tftp_setup = 0
     if TFTP_RUN:
         tftp_setup_start = time.time()
-        info(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/logs & \n')
-        ivi.cmd(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/logs & \n')
+        info(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/ivi_logs & \n')
+        ivi.cmd(f'/root/someip_app/pyTFTP/server.py -H 10.0.3.5 -p 8467 /root/someip_app/ivi_logs & \n')
         tftp_setup_end = time.time()
         t_tftp_setup = calc_elapsed_time("TFTP server init time", \
                 tftp_setup_start, \
